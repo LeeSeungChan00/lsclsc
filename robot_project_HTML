@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>★무인 편의점☆ Drivethru</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background-color: #f0f0f0;
+      padding: 16px;
+    }
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .welcome-text {
+      font-size: 20px;
+      font-weight: bold;
+      max-width: 70%;
+    }
+    .cart-top-button {
+      background-image: linear-gradient(
+        90deg,
+        rgb(86, 178, 106), rgb(212, 50, 50), yellow, rgb(230, 15, 180), blue, indigo, rgb(245, 246, 245)
+      );
+      background-size: 300%;
+      animation: rainbowBG 10s linear infinite !important;
+
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 24px;
+      cursor: pointer;
+    }
+
+@keyframes rainbowBG {
+  0% { background-position: 0%; }
+  100% { background-position: 100%; }
+}
+    .terminal {
+      background-color: #111;
+      color: #0f0;
+      padding: 15px;
+      border-radius: 10px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      white-space: pre-wrap;
+      margin-bottom: 20px;
+      line-height: 1;
+      max-height: calc(1.4em * 6 + 30px);
+      overflow-y: auto;
+    }
+    .terminal::before {
+      content: "상품 선택";
+      color: #0ff;
+      display: block;
+      margin-bottom: 10px;
+    }
+    .icon-grid {
+      display: grid;
+      grid-template-columns: 1fr !important;
+      gap: 12px;
+    }
+    .icon-button {
+      width: 80% !important;
+      height: 60px !important;
+      margin: 15px auto !important;
+      background-color: transparent !important; /* 배경 제거 */
+      color: transparent !important; /* 무지개 효과 위해 기본색 투명 처리 */
+      border: 2px solid black !important; /* 검은색 테두리 */
+      border-radius: 10px !important;
+      font-size: 56px !important;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      box-shadow: none !important; /* 그림자 제거 */
+      cursor: pointer;
+      position: relative;
+      transition: background 0.2s;
+  
+      /* 무지개 텍스트 */
+      background-image: linear-gradient(
+        90deg,
+        red, orange, yellow, green, blue, indigo, violet
+      );
+      background-size: 300%;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: rainbowText 20s linear infinite !important;
+    }
+
+@keyframes rainbowText {
+  0% { background-position: 0%; }
+  100% { background-position: 100%; }
+}
+    .icon-button:active {
+      background-color: #0056b3 !important;
+    }
+    .cart-icon {
+      position: absolute;
+      top: 8px;
+      right: 18px;
+      font-size: 16px;
+      color: #fff;
+    }
+    @media (max-width: 600px) {
+      .icon-button {
+        width: 90% !important;
+        font-size: 1.25em !important;
+        height: 54px !important;
+        margin: 11px auto !important;
+      }
+    }
+
+    .fade-in {
+      animation: fadeIn 1s forwards;
+    }
+    .fade-out {
+      animation: fadeOut 1s forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes fadeOut {
+      from { opacity: 1; }
+      to { opacity: 0; }
+    }  
+
+    .cart-modal {
+      position: fixed;
+      top: 30%;
+      left: 5%;
+      width: 90vw;
+      background: #fff;
+      border: 2.5px solid #1976d2;
+      border-radius: 18px;
+      padding: 42px 18px 36px 18px;
+      z-index: 1000;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.23);
+      max-height: 62vh;
+      overflow-y: auto;
+      font-size: 24px;
+    }
+    .cart-item {
+      font-size: 26px;
+      margin-bottom: 20px;
+    }
+
+    .check-icon {
+      width: 24px;
+      height: 24px;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+
+
+    .cart-item-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .cart-item-controls button {
+      padding: 9px 22px;
+      font-size: 26px;
+      cursor: pointer;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      background: #eee;
+      transition: background 0.2s;
+    }
+    .cart-item-controls button:hover {
+      background: #ddd;
+    }
+    .cart-total {
+      margin-top: 30px;
+      font-weight: bold;
+      font-size: 24px;
+      text-align: right;
+    }
+    .cart-actions {
+      text-align: right;
+      margin-top: 12px;
+    }
+    .cart-actions button {
+      padding: 14px 36px;
+      margin-left: 8px;
+      border: none;
+      border-radius: 11px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 26px;
+    }
+    .confirm-btn {
+      background-color: #4caf50;
+      color: white;
+    }
+    .close-btn {
+      background-color: #aaa;
+      color: white;
+    }
+    .payment-select button {
+      margin: 6px 8px 0 0;
+    }
+    .debug-btn {
+      margin-left: 14px;
+      font-size: 16px;
+      border: 1px solid #1976d2;
+      background: #fff;
+      color: #1976d2;
+      border-radius: 7px;
+      padding: 5px 15px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .debug-btn:hover {
+      background: #1976d2;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div id="loadScreen" style="
+  position: fixed; top:0; left:0; width:100vw; height:100vh; background:#fff; display:flex; justify-content:center; align-items:center; z-index:2000;">
+  <img src="{{ url_for('static', filename='gif/Load.gif') }}" alt="Loading..." style="max-width: 200vw; max-height: 50vh;" />
+</div>
+
+<!-- 2) good.gif + 어서오세요 텍스트 화면 -->
+<div id="welcomeScreen" style="
+  position: fixed; top:0; left:0; width:100vw; height:100vh; background:#fff; display:none; flex-direction: column; justify-content:center; align-items:center; z-index:2000;">
+  <img src="{{ url_for('static', filename='gif/good.gif') }}" alt="Welcome" style="max-width: 50vw; max-height: 50vh;" />
+  <div style="font-size: 2rem; margin-top: 16px; color: #333; font-weight: bold;">어서오세요</div>
+</div>
+
+<!-- 기존 Drivethru 본문은 여기부터 시작 -->
+<div id="mainContent" style="display:none;">
+
+<div class="header-row">
+  <div class="welcome-text">
+    무인 편의점 Drivethru
+    
+  </div>
+  <button class="cart-top-button" onclick="showCart()">🛒</button>
+  <button class="debug-btn" onclick="showBotGifAndClose()">나가기</button>
+</div>
+
+<div class="terminal" id="terminal-log">환영합니다</div>
+
+<div class="icon-grid">
+  <!-- 상품 버튼 유지 -->
+    <button class="icon-button" onclick="addToCart('먹태깡', 1200)">먹태깡<span class="cart-icon">🛒</span></button>
+    <button class="icon-button" onclick="addToCart('ABC쿠키', 1500)">ABC쿠키<span class="cart-icon">🛒</span></button>
+    <button class="icon-button" onclick="addToCart('오레오', 800)">오레오<span class="cart-icon">🛒</span></button>
+    <button class="icon-button" onclick="addToCart('칸쵸', 1000)">칸쵸<span class="cart-icon">🛒</span></button>
+    <button class="icon-button" onclick="addToCart('꼬북칩', 1100)">꼬북칩<span class="cart-icon">🛒</span></button>
+    <button class="icon-button" onclick="addToCart('오감자', 1300)">오감자<span class="cart-icon">🛒</span></button>
+    <button class="icon-button" onclick="addToCart('초코송이', 2500)">초코송이<span class="cart-icon">🛒</span></button>
+    <button class="icon-button" onclick="addToCart('썬칩', 1400)">썬칩<span class="cart-icon">🛒</span></button>
+</div>
+
+<div id="debug-log" 
+     style="
+       margin-top: 10px;
+       padding: 10px;
+       border: 1px solid #1976d2;
+       background-color: #e8f0fe;
+       height: 120px;
+       overflow-y: auto;
+       font-family: monospace;
+       font-size: 12px;
+       white-space: pre-wrap;
+       border-radius: 8px;
+     ">
+  <!-- 디버그 로그가 여기 표시됩니다 -->
+</div>
+
+<div id="cart-modal" class="cart-modal" style="display: none;"></div>
+
+<script>
+  const SERVER_BASE_URL = 'http://192.168.3.5:5000';  // Flask 서버 주소
+
+  const terminal = document.getElementById('terminal-log');
+  const cart = [];
+  let isPaying = false;
+  let clearStopped = false;
+
+  // 폴링 핸들 전역 변수
+  let coinpassPollHandle = null;
+  let nextallPollHandle = null;
+  let clearPollHandle = null;
+  let clearPollStarted = false;
+
+  // 폴링 간격(ms)
+  const COINPASS_POLL_MS = 200;
+  const NEXTALL_POLL_MS  = 250;
+  const PROCESS_POLL_MS  = 700;
+
+  // === UI 및 상태 관리 함수 ===
+  function appendTerminal(text) {
+    const time = new Date().toLocaleTimeString();
+    terminal.textContent += `\n[${time}] ${text}`;
+    terminal.scrollTop = terminal.scrollHeight;
+  }
+
+  function debugLog(message) {
+    const logDiv = document.getElementById('debug-log');
+    const time = new Date().toLocaleTimeString();
+    logDiv.textContent += `[${time}] ${message}\n`;
+    logDiv.scrollTop = logDiv.scrollHeight;
+  }
+
+  function addToCart(name, price) {
+    if (isPaying) {
+      alert("결제 중에는 상품을 추가할 수 없습니다.");
+      return;
+    }
+    const item = cart.find(i => i.name === name);
+    if (item) {
+      item.qty++;
+    } else {
+      cart.push({ name, qty: 1, price });
+    }
+    appendTerminal(`📥 ${name} 추가됨`);
+  }
+
+  function showCart() {
+    const modal = document.getElementById('cart-modal');
+    if (cart.length === 0) {
+      modal.innerHTML =
+        `<div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:1.1em;">장바구니가 비어 있습니다.</span>
+          <button onclick="closeCart()" style="font-size:2em; border:none; background:none; cursor:pointer; margin-left:16px;">✖</button>
+        </div>`;
+    } else if (isPaying) {
+      modal.innerHTML = "<p>결제중입니다... 잠시만 기다려 주세요.</p>";
+    } else {
+      let html = cart.map((item, idx) =>
+        `<div class="cart-item">
+          <span>${item.name} (${item.price}원)</span>
+          <div class="cart-item-controls">
+            <button onclick="updateQty(${idx}, -1)">➖</button>
+            <span>${item.qty}</span>
+            <button onclick="updateQty(${idx}, 1)">➕</button>
+            <button onclick="removeItem(${idx})">❌</button>
+          </div>
+        </div>`
+      ).join("");
+
+      const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+      html += `<div class="cart-total">총합: ${total.toLocaleString()}원</div>`;
+      html +=
+        `<div class="cart-actions">
+          <button class="close-btn" onclick="closeCart()">닫기</button>
+          <button class="confirm-btn" onclick="choosePayment()">결제하기</button>
+        </div>`;
+      modal.innerHTML = html;
+    }
+    modal.style.display = "block";
+  }
+
+  function closeCart() {
+    document.getElementById('cart-modal').style.display = "none";
+  }
+
+  function closeCartAndReset() {
+    closeCart();
+    isPaying = false;
+    cart.length = 0;
+    clearStopped = false;
+    appendTerminal('환영합니다.');
+  }
+
+  function updateQty(index, change) {
+    if (isPaying) return;
+    cart[index].qty += change;
+    if (cart[index].qty <= 0) cart.splice(index, 1);
+    showCart();
+  }
+
+  function removeItem(index) {
+    if (isPaying) return;
+    cart.splice(index, 1);
+    showCart();
+  }
+
+  function choosePayment() {
+    if (cart.length === 0) {
+      alert("장바구니가 비어 있습니다.");
+      return;
+    }
+    const modal = document.getElementById('cart-modal');
+    modal.innerHTML =
+      `<p>💳 결제 수단을 선택해주세요:</p>
+      <div class="cart-actions payment-select">
+        <button class="confirm-btn" onclick="pay('현장결제')">현장결제</button>
+        <button class="confirm-btn" onclick="pay('카카오페이')">카카오페이</button>
+        <button class="close-btn" onclick="closeCart()">취소</button>
+      </div>`;
+  }
+
+  // === 안전한 fetch 래퍼 ===
+  function instantFetch(url, opts = {}) {
+    opts.headers = Object.assign({'Content-Type': 'application/json', 'Cache-Control': 'no-cache'}, opts.headers || {});
+    if (opts.body && typeof opts.body !== 'string') opts.body = JSON.stringify(opts.body);
+    if (url.startsWith('/')) url = SERVER_BASE_URL + url;
+    return fetch(url, opts);
+  }
+
+  // === 디버그: coinpass 강제 전송 ===
+  function sendTestCoinpass() {
+    fetch(`${SERVER_BASE_URL}/coinpass`, { method: 'POST', headers: {'Cache-Control': 'no-cache'} })
+      .then(res => res.json())
+      .then(data => {
+        alert('[디버그] coinpass POST 결과: ' + JSON.stringify(data));
+        appendTerminal('[디버그] /coinpass POST 전송됨');
+      })
+      .catch(e => {
+        appendTerminal('[디버그] /coinpass 전송 실패: ' + e);
+        console.error(e);
+      });
+  }
+
+  // === 결제 프로세스 시작 ===
+  async function pay(method) {
+    if (isPaying) return;
+  isPaying = true;
+  clearStopped = false;
+
+  const modal = document.getElementById('cart-modal');
+  const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+  modal.innerHTML = `<p>${method}로 결제중입니다... 신호 대기 중...</p>`;
+
+  appendTerminal(`💳 ${method} 결제 요청 중... 총 ${total.toLocaleString()}원`);
+
+  const cartData = {};
+  cart.forEach(item => {
+    cartData[item.name] = item.qty;
+  });
+
+  // 1) start_payment API 호출 (기존)
+  // 1) cash_amount 전송 및 start_payment API 호출 (수정)
+  try {
+    // 먼저 결제 금액을 Rapid에 전송
+    const cashRes = await instantFetch('/send_cash_amount', {
+      method: 'POST',
+      body: { amount: total }
+    });
+    const cashJson = await cashRes.json();
+    if (cashJson.status !== 'cash_sent') {
+      appendTerminal('[에러] 결제 금액 전송 실패: ' + JSON.stringify(cashJson));
+      alert("결제 금액 전송 중 오류가 발생했습니다.");
+      isPaying = false;
+      closeCart();
+      return;
+    }
+    appendTerminal('✅ 결제 금액 로봇에 전송 완료');
+
+    // 그리고 기존 start_payment 호출 (snack queue 초기화 및 coinpass 대기)
+    const startRes = await instantFetch('/start_payment', {
+      method: 'POST',
+      body: { cart: cartData }
+    });
+    const startJson = await startRes.json();
+    if (startJson.status !== 'waiting_for_coinpass') {
+      appendTerminal('[에러] start_payment 응답 이상: ' + JSON.stringify(startJson));
+      alert("서버 오류가 발생했습니다.");
+      isPaying = false;
+      closeCart();
+      return;
+    }
+  } catch (e) {
+    appendTerminal('[에러] 결제 시작 또는 금액 전송 실패: ' + e);
+    alert("서버 통신 에러");
+    isPaying = false;
+    closeCart();
+    return;
+  }
+
+  appendTerminal(`💳 결제 수단: ${method}`);
+
+  // ✅ 2) 현장결제면 총액을 /paypoint로 전송
+  if (method === '현장결제') {
+    try {
+      const payRes = await instantFetch('/paypoint', {
+        method: 'POST',
+        body: { amount: total }
+      });
+      const payJson = await payRes.json();
+      if (payJson.status === 'sent') {
+        appendTerminal(`💸 paypoint 전송: ${total.toLocaleString()}원`);
+        debugLog(`[paypoint] sent: ${JSON.stringify(payJson)}`);
+      } else {
+        appendTerminal('⚠️ paypoint 전송 실패: ' + JSON.stringify(payJson));
+      }
+    } catch (e) {
+      appendTerminal('⚠️ paypoint 전송 에러: ' + e);
+    }
+  }
+
+  // 3) coinpass 폴링 시작 (기존 로직 그대로)
+  let coinpassReceived = false;
+  let coinpassMisses = 0;
+  appendTerminal('📡 Coinpass 폴링 시작');
+
+  coinpassPollHandle = setInterval(async () => {
+    try {
+      const res = await instantFetch('/check_coinpass');
+      const json = await res.json();
+
+      debugLog(`[폴링] /check_coinpass 응답: ${JSON.stringify(json)}`);
+
+      if (json && json.coinpass === true) {
+        coinpassReceived = true;
+        appendTerminal('📡 Coinpass 신호 수신!');
+
+        modal.innerHTML = `<p>결제완료 물품을 하나씩 꺼냅니다.</p>`;
+
+        // clear 신호 폴링 시작
+        startClearPoll();
+
+        // coinpass 상태 즉시 리셋
+        try {
+          await instantFetch('/reset_coinpass', { method: 'POST' });
+          appendTerminal('🔁 /reset_coinpass 호출 완료');
+        } catch (e) {
+          appendTerminal('⚠️ /reset_coinpass 호출 실패: ' + e);
+        }
+
+        clearInterval(coinpassPollHandle);
+        coinpassPollHandle = null;
+
+        // 4) 로봇 작업 진행
+        proceedRobotWork(modal);
+
+      } else {
+        coinpassMisses++;
+        if (coinpassMisses % 8 === 0) {
+          appendTerminal('Coinpass 신호 대기중...');
+        }
+      }
+    } catch (e) {
+      appendTerminal('[에러] /check_coinpass 폴링 에러: ' + e);
+      console.error(e);
+    }
+  }, COINPASS_POLL_MS);
+
+  // safety timeout: 2분 대기 후 실패 처리
+  setTimeout(() => {
+    if (!coinpassReceived) {
+      appendTerminal('⏳ Coinpass 최대 대기 시간 초과 — 결제 취소');
+      if (coinpassPollHandle) { clearInterval(coinpassPollHandle); coinpassPollHandle = null; }
+      isPaying = false;
+      modal.innerHTML = `<p>결제 시간이 초과되었습니다.</p><button onclick="closeCartAndReset()">닫기</button>`;
+      clearStopped = true;
+    }
+  }, 120000);
+}
+
+  // === coinpass 수신 후 로봇 작업 진행 ===
+  async function proceedRobotWork(modal) {
+    // 주문 물품명 배열로 정리
+    const snackOrder = [];
+    cart.forEach(item => {
+      for (let i = 0; i < item.qty; i++) {
+        snackOrder.push(item.name);
+      }
+    });
+
+    // nextall 신호 폴링 시작 (로봇 작업 완료 신호 감지)
+    nextallPollHandle = setInterval(async () => {
+      try {
+        const res = await instantFetch('/check_nextall');
+        const json = await res.json();
+
+        debugLog(`[폴링] /check_nextall 응답: ${JSON.stringify(json)}`);
+
+        if (json && json.nextall === true) {
+          appendTerminal('🤖 로봇 nextall 신호 감지');
+
+          // 완료 인덱스 증가 요청 << 임마가 문제였다.
+          //await instantFetch('/nextall', { method: 'POST' });
+          //appendTerminal('🔁 /nextall POST 완료');
+
+          // nextall 이벤트 리셋
+          //await instantFetch('/reset_nextall', { method: 'POST' });
+          //appendTerminal('🔁 /reset_nextall POST 완료');
+        }
+      } catch (e) {
+        appendTerminal('⚠️ /check_nextall 폴링 에러: ' + e);
+        console.error(e);
+      }
+    }, NEXTALL_POLL_MS);
+
+    // 작업 순서대로 하나씩 완료 체크
+    for (let i = 0; i < snackOrder.length; i++) {
+      if (clearStopped) break;
+      const snackName = snackOrder[i];
+      appendTerminal(`🤖 [로봇팔] '${snackName}' 작업 (${i + 1}/${snackOrder.length}) 대기중`);
+
+      let snackDone = false;
+      while (!snackDone) {
+        if (clearStopped) break;
+        try {
+          const res = await instantFetch(`/nextall_done?current=${i}`);
+          const json = await res.json();
+
+          debugLog(`[폴링] /nextall_done 응답: ${JSON.stringify(json)}`);
+
+          if (json.done === true) {
+            appendTerminal(`✅ '${snackName}' 작업 완료 확인`);
+            snackDone = true;
+            await new Promise(r => setTimeout(r, 1000)); // 1초 대기 추가
+          } else {
+            await new Promise(r => setTimeout(r, PROCESS_POLL_MS));
+          }
+        } catch (e) {
+          appendTerminal('⚠️ /nextall_done 확인 오류: ' + e);
+          await new Promise(r => setTimeout(r, 2000));
+        }
+      }
+    }
+
+    // nextall 폴링 중지
+    if (nextallPollHandle) {
+      clearInterval(nextallPollHandle);
+      nextallPollHandle = null;
+    }
+
+    appendTerminal('🤖 모든 작업 완료 대기 중...');
+
+    // 작업 완료 신호로 stopping 전송
+    try {
+      await instantFetch('/send_stopping', { method: 'POST' });
+      appendTerminal('🔔 stopping 신호 로봇에 전송 완료');
+    } catch(e) {
+      appendTerminal('⚠️ stopping 신호 전송 실패: ' + e);
+    }
+  }
+  function addCheckIconToButton(button) {
+  // 이미 check 아이콘이 있으면 리턴
+  if (button.querySelector('.check-icon')) return;
+
+  // check.gif 이미지 엘리먼트 생성
+  const checkImg = document.createElement('img');
+  checkImg.src = "{{ url_for('static', filename='gif/check.gif') }}";  // check.gif 경로 맞춰서 넣기
+  checkImg.alt = 'Check';
+  checkImg.className = 'check-icon';
+
+  // 버튼 안에 텍스트 뒤쪽에 이미지 추가
+  button.appendChild(checkImg);
+
+  // 2초 후에 이미지 제거
+  setTimeout(() => {
+    checkImg.remove();
+  }, 2000);
+}
+
+// 기존 addToCart 함수 수정 부분 (맨 위부터 아래로 읽으면 됨)
+function addToCart(name, price) {
+  if (isPaying) {
+    alert("결제 중에는 상품을 추가할 수 없습니다.");
+    return;
+  }
+  const item = cart.find(i => i.name === name);
+  if (item) {
+    item.qty++;
+  } else {
+    cart.push({ name, qty: 1, price });
+  }
+  appendTerminal(`📥 ${name} 추가됨`);
+
+  // 눌린 버튼 찾기
+  const buttons = document.querySelectorAll('.icon-button');
+  buttons.forEach(button => {
+    if (button.textContent.includes(name)) {
+      addCheckIconToButton(button);
+    }
+  });
+}
+  // === clear 신호 폴링 (주문 완료 확인용) ===
+  function startClearPoll() {
+    if (clearPollStarted) return;
+    clearPollStarted = true;
+    appendTerminal('📡 Clear 신호 폴링 시작');
+
+    clearPollHandle = setInterval(async () => {
+      if (clearStopped) {
+        clearInterval(clearPollHandle);
+        clearPollHandle = null;
+        clearPollStarted = false;
+        return;
+      }
+      try {
+        const res = await instantFetch('/check_clear');
+        const json = await res.json();
+
+        debugLog(`[폴링] /check_clear 응답: ${JSON.stringify(json)}`);
+
+        if (json.clear === true) {
+          appendTerminal('✅ 상품 주문 완료 확인');
+
+          // clear 상태 리셋 요청
+          try {
+            await instantFetch('/reset_clear', { method: 'POST' });
+            appendTerminal('🔁 /reset_clear POST 완료');
+          } catch (e) {
+            appendTerminal('⚠️ /reset_clear 호출 실패: ' + e);
+          }
+
+          // 완료 모달 표시
+          const modal = document.getElementById('cart-modal');
+          modal.innerHTML = `
+            <div style="text-align:center;">
+              <p>★ 상품 주문이 완료되었습니다. 이용해주셔서 감사합니다.</p>
+              <button onclick="closeCartAndReset()" style="font-size:2em; margin-top:18px;">✖ 닫기</button>
+            </div>
+          `;
+          modal.style.display = "block";
+
+          clearStopped = true;
+
+          clearInterval(clearPollHandle);
+          clearPollHandle = null;
+          clearPollStarted = false;
+        }
+      } catch (e) {
+        appendTerminal('⚠️ clear 신호 폴링 오류: ' + e);
+      }
+    }, 1000);
+  }
+
+  function showBotGifAndClose() {
+  // 1) 화면 덮는 div 생성
+    const overlay = document.createElement('div');
+    overlay.id = 'botOverlay';
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100vw';
+    overlay.style.height = '100vh';
+    overlay.style.backgroundColor = '#fff';
+    overlay.style.display = 'flex';
+    overlay.style.flexDirection = 'column';
+    overlay.style.justifyContent = 'center';
+    overlay.style.alignItems = 'center';
+    overlay.style.zIndex = '3000';
+
+  // 2) bot.gif 이미지
+    const img = document.createElement('img');
+    img.src = "{{ url_for('static', filename='gif/bot.gif') }}";  // 경로 맞게 수정하세요
+    img.style.maxWidth = '50vw';
+    img.style.maxHeight = '50vh';
+    overlay.appendChild(img);
+
+  // 3) 텍스트
+    const text = document.createElement('div');
+    text.textContent = '다음에 또 오세요!';
+    text.style.fontSize = '2rem';
+    text.style.color = '#333';
+    text.style.fontWeight = 'bold';
+    text.style.marginTop = '16px';
+    overlay.appendChild(text);
+
+    document.body.appendChild(overlay);
+
+  // 4) 5초 후 종료 시도
+    setTimeout(() => {
+      try {
+        window.close();
+      } catch (e) {
+        alert('페이지를 닫을 수 없습니다. 창을 직접 닫아주세요.');
+      }
+    }, 5000);
+  }
+
+
+  window.addEventListener('load', () => {
+  const loadScreen = document.getElementById('loadScreen');
+  const welcomeScreen = document.getElementById('welcomeScreen');
+  const mainContent = document.getElementById('mainContent');
+
+  setTimeout(() => {
+    loadScreen.classList.add('fade-out');
+    loadScreen.addEventListener('animationend', () => {
+      loadScreen.style.display = 'none';
+
+      welcomeScreen.style.display = 'flex';
+      welcomeScreen.classList.add('fade-in');
+    }, { once: true });
+
+    setTimeout(() => {
+      welcomeScreen.classList.remove('fade-in');
+      welcomeScreen.classList.add('fade-out');
+      welcomeScreen.addEventListener('animationend', () => {
+        welcomeScreen.style.display = 'none';
+
+        mainContent.style.display = 'block';
+        mainContent.classList.add('fade-in');
+      }, { once: true });
+    }, 2000); //스마일타임
+
+  }, 2000); //로딩타임
+});
+
+</script>
+
+</body>
+</html>
