@@ -1,0 +1,438 @@
+MODULE Module1
+    TASK PERS tooldata project_tool:=[TRUE,[[180,0,40],[1,0,0,0]],[0.2,[60,0,50],[1,0,0,0],0,0,0]];
+    
+    CONST robtarget Target_Home:=[[530.68,-9.78,439.01],[2.66753E-06,-0.999931,0.0117322,1.527E-05],[-1,0,2,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget Target_10:=[[-446.10,-543.27,639.08],[0.0151736,-0.00905211,0.999843,0.00140516],[-2,0,2,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget Target_20:=[[-454.67,-318.15,640.35],[0.01517,-0.00898951,0.999844,0.00131451],[-2,0,2,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget Target_30:=[[-452.12,-533.24,489.13],[0.0151794,-0.00899321,0.999843,0.00143549],[-2,0,2,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget Target_40:=[[-448.19,-304.93,493.57],[0.015168,-0.00895955,0.999844,0.0014144],[-2,0,2,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget Target_50:=[[-447.95,-554.26,345.19],[0.0151772,-0.00893177,0.999844,0.00135982],[-2,0,2,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget Target_60:=[[-447.95,-297.14,344.82],[0.0151656,-0.00892548,0.999844,0.00140194],[-2,0,2,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget Target_70:=[[-447.38,-572.83,193.64],[0.0151653,-0.00888542,0.999845,0.00127985],[-2,0,2,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget Target_80:=[[-448.86,-310.64,190.89],[0.0151524,-0.0089229,0.999845,0.00125994],[-2,0,2,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget Target_way_point:=[[166.18,-523.57,573.37],[0.00952129,-0.712299,0.701811,-0.00112041],[-1,0,2,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget Target_end_point:=[[507.31,247.04,379.07],[0.132687,0.888685,0.209874,-0.385469],[0,-1,2,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget Target_white_plastic_box:=[[453.71,-511.45,114.48],[5.96066E-05,0.999931,-0.0117327,1.86997E-05],[-1,-1,1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget Target_black_plastic_box:=[[453.69,-434.57,114.45],[1.85657E-05,0.999931,-0.0117179,-8.1857E-06],[-1,-1,1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget Target_metal_box:=[[453.67,-353.88,114.43],[3.63341E-06,0.999931,-0.0117121,-2.0931E-05],[-1,-1,1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget Target_arrive_point:=[[719.01,5.56,143.67],[1.64407E-05,-0.999931,0.0117167,0.000106059],[0,0,2,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+
+    VAR socketdev server_socket;
+    VAR socketdev client_socket;
+    VAR string    client_ip := "";
+    VAR string    recv_msg  := "";
+    VAR string    command_to_send := "";
+    VAR num       user_input := 0;
+
+	VAR intnum interrupt_sign;
+    CONST string ROBOT_IP := "192.168.3.2";
+    CONST num    ROBOT_PORT := 8888;
+
+    CONST string DELIM := ";";
+    VAR string rx_buf := "";
+    VAR num current_payment_amount := 0;
+    
+    VAR num coin := 0;
+    VAR string strnum;
+    
+    PROC main()
+		CONNECT interrupt_sign WITH E_STOP;
+		ISignalDI di09_interrupt, high, interrupt_sign;
+		IWatch interrupt_sign;
+        
+        AccSet 1,1;
+        MoveJ Target_Home, v200, z30, project_tool;
+        main_start;
+    ENDPROC
+    
+    PROC main_start()
+        SocketCreate server_socket;
+        SocketBind   server_socket, ROBOT_IP, ROBOT_PORT;
+        SocketListen server_socket;
+        TPWrite "server socket open, waiting client on: " + ROBOT_IP;
+
+        WHILE TRUE DO
+WaitAccept:
+            SocketAccept server_socket, client_socket \ClientAddress := client_ip;
+            TPWrite "client connected: " + client_ip;
+
+            rx_buf := "";
+
+            RecvUntilUseful recv_msg;
+            IF StartsWith(recv_msg, "cash:") THEN
+                current_payment_amount := ParseNumFromString(recv_msg, "cash:");
+                TPWrite "Received cash payment: " + NumToStr(current_payment_amount, 0) + " won.";
+
+                TPWrite "PLC start";
+                PulseDO\PLength:=0.2, do02_plcstart;
+
+                WHILE TRUE DO
+                    IF di06_arrive = 1 THEN
+                        save;
+                    ELSEIF di02_ma_none = 1 AND di07_running = 0 AND di06_arrive = 0 THEN
+                        TPWrite "coin : " + NumToStr(coin, 0);
+                        TPWrite "cash : " + NumToStr(current_payment_amount, 0);
+
+                        IF coin >= current_payment_amount THEN
+                            TPWrite "Payment OK, sending coinpass";
+                            SendStr "coinpass";
+                            RecvUntilUseful recv_msg;
+                            IF StartsWith(recv_msg, "stopp") THEN
+                                TPWrite "Stopping (after coinpass). Send clear & re-accept.";
+                                SendStr "ok_stopping";
+                                SendStr "clear";
+                                SocketClose client_socket;
+                                WaitTime 0.1;
+                                GOTO WaitAccept;
+                            ENDIF
+
+                            WHILE TRUE DO
+                                IF StartsWith(recv_msg, "stopp") THEN
+                                    TPWrite "Stopping (in loop). Send clear & re-accept.";
+                                    SendStr "ok_stopping";
+                                    SendStr "clear";
+                                    SocketClose client_socket;
+                                    WaitTime 0.1;
+                                    GOTO WaitAccept;
+                                ENDIF
+
+                                IF StartsWith(recv_msg, "snack1") THEN
+                                    TPWrite "Start snack1";
+                                    MoveSnack1;
+                                    TPWrite "Done snack1 - send nextall";
+                                    SendStr "nextall";
+                                ELSEIF StartsWith(recv_msg, "snack2") THEN
+                                    TPWrite "Start snack2";
+                                    MoveSnack2;
+                                    TPWrite "Done snack2 - send nextall";
+                                    SendStr "nextall";
+                                ELSEIF StartsWith(recv_msg, "snack3") THEN
+                                    TPWrite "Start snack3";
+                                    MoveSnack3;
+                                    TPWrite "Done snack3 - send nextall";
+                                    SendStr "nextall";
+                                ELSEIF StartsWith(recv_msg, "snack4") THEN
+                                    TPWrite "Start snack4";
+                                    MoveSnack4;
+                                    TPWrite "Done snack4 - send nextall";
+                                    SendStr "nextall";
+                                ELSEIF StartsWith(recv_msg, "snack5") THEN
+                                    TPWrite "Start snack5";
+                                    MoveSnack5;
+                                    TPWrite "Done snack5 - send nextall";
+                                    SendStr "nextall";
+                                ELSEIF StartsWith(recv_msg, "snack6") THEN
+                                    TPWrite "Start snack6";
+                                    MoveSnack6;
+                                    TPWrite "Done snack6 - send nextall";
+                                    SendStr "nextall";
+                                ELSEIF StartsWith(recv_msg, "snack7") THEN
+                                    TPWrite "Start snack7";
+                                    MoveSnack7;
+                                    TPWrite "Done snack7 - send nextall";
+                                    SendStr "nextall";
+                                ELSEIF StartsWith(recv_msg, "snack8") THEN
+                                    TPWrite "Start snack8";
+                                    MoveSnack8;
+                                    TPWrite "Done snack8 - send nextall";
+                                    SendStr "nextall";
+                                ELSE
+                                    TPWrite "Ignored non-snack: " + recv_msg;
+                                ENDIF
+
+                                RecvUntilUseful recv_msg;
+                            ENDWHILE
+                        ELSE
+                            TPWrite "Not enough coin, waiting...";
+                        ENDIF
+                    ENDIF
+                ENDWHILE
+            ENDIF
+
+            WHILE TRUE DO
+                RecvUntilUseful recv_msg;
+
+                IF StartsWith(recv_msg, "stopp") THEN
+                    TPWrite "Stopping, send clear & re-accept.";
+                    SendStr "clear";
+                    SocketClose client_socket;
+                    WaitTime 0.1;
+                    GOTO WaitAccept;
+                ENDIF
+
+                IF StartsWith(recv_msg, "snack1") THEN
+                    TPWrite "Start snack1";
+                    MoveSnack1;
+                    TPWrite "Done snack1 - send nextall";
+                    SendStr "nextall";
+                ELSEIF StartsWith(recv_msg, "snack2") THEN
+                    TPWrite "Start snack2";
+                    MoveSnack2;
+                    TPWrite "Done snack2 - send nextall";
+                    SendStr "nextall";
+                ELSE
+                    TPWrite "Ignored non-snack: " + recv_msg;
+                ENDIF
+            ENDWHILE
+        ENDWHILE
+
+        SocketClose server_socket;
+        TPWrite "Server socket closed";
+    ENDPROC
+    
+	PROC grip_on()
+		PulseDO\PLength:=0.2, do00_grip_on;
+		WaitDI di00_grip_on_sen, 1;
+	ENDPROC
+
+	PROC grip_off()
+		PulseDO\PLength:=0.2, do01_grip_off;
+		WaitDI di01_grip_off_sen, 1;
+	ENDPROC
+
+	PROC save()
+		MoveJ Offs(Target_arrive_point,0,0,50), v200, z30, project_tool;
+		MoveL Target_arrive_point, v50, fine, project_tool;
+		grip_on;
+		MoveL Offs(Target_arrive_point,0,0,50), v200, z30, project_tool;
+		IF di03_metal = 1 THEN
+			PulseDO\PLength:=0.2, do03_reset_jedg;
+            MoveJ Target_Home, v200, z30, project_tool;
+            MoveL Offs(Target_metal_box,0,0,50), v200, z30, project_tool;
+            MoveL Target_metal_box, v200, fine, project_tool;
+            grip_off;
+            MoveJ Offs(Target_metal_box,0,0,50), v200, z30, project_tool;
+            coin := coin + 5000;
+            strnum := NumToStr(coin, 0);
+            TPWrite "total coin = " + strnum;
+		ELSEIF di04_plastic_black = 1 THEN
+			PulseDO\PLength:=0.2, do03_reset_jedg;
+            MoveJ Target_Home, v200, z30, project_tool;
+            MoveJ Offs(Target_black_plastic_box,0,0,50), v200, z30, project_tool;
+            MoveL Target_black_plastic_box, v200, fine, project_tool;
+            grip_off;
+            MoveJ Offs(Target_black_plastic_box,0,0,50), v200, z30, project_tool;
+            coin := coin + 1000;
+            strnum := NumToStr(coin, 0);
+            TPWrite "total coin = " + strnum;
+		ELSE
+			PulseDO\PLength:=0.2, do03_reset_jedg;
+            MoveJ Target_Home, v200, z30, project_tool;
+            MoveJ Offs(Target_white_plastic_box,0,0,50), v200, z30, project_tool;
+            MoveL Target_white_plastic_box, v200, fine, project_tool;
+            grip_off;
+            MoveJ Offs(Target_white_plastic_box,0,0,50), v200, z30, project_tool;
+            coin := coin + 100;
+            strnum := NumToStr(coin, 0);
+            TPWrite "total coin = " + strnum;
+		ENDIF
+        MoveJ Target_Home, v200, z30, project_tool;
+	ENDPROC
+
+	TRAP E_STOP
+		VAR robtarget e_stop_pos;
+		StopMove;
+		StorePath;
+		e_stop_pos:= CRobT();
+		MoveJ Target_Home, v200, z30, project_tool;
+		WaitDI di08_restart, 1;
+		MoveL e_stop_pos, v200, fine, project_tool;
+		RestoPath;
+		StartMove;
+	ENDTRAP
+
+    FUNC num ParseNumFromString(string s_in, string prefix)
+        VAR num start_pos := 0;
+        VAR num i := 0;
+        VAR num num_val := 0;
+        VAR num digit := 0;
+        VAR string current_char := "";
+
+        IF NOT StartsWith(s_in, prefix) THEN
+            RETURN 0;
+        ENDIF
+
+        start_pos := StrLen(prefix) + 1;
+
+        FOR i FROM start_pos TO StrLen(s_in) DO
+            current_char := StrPart(s_in, i, 1);
+            IF current_char = "0" THEN digit := 0;
+            ELSEIF current_char = "1" THEN digit := 1;
+            ELSEIF current_char = "2" THEN digit := 2;
+            ELSEIF current_char = "3" THEN digit := 3;
+            ELSEIF current_char = "4" THEN digit := 4;
+            ELSEIF current_char = "5" THEN digit := 5;
+            ELSEIF current_char = "6" THEN digit := 6;
+            ELSEIF current_char = "7" THEN digit := 7;
+            ELSEIF current_char = "8" THEN digit := 8;
+            ELSEIF current_char = "9" THEN digit := 9;
+            ELSE
+                BREAK;
+            ENDIF
+            num_val := (num_val * 10) + digit;
+        ENDFOR
+        RETURN num_val;
+    ENDFUNC
+
+    FUNC bool StartsWith(string s, string pref)
+        IF StrLen(s) < StrLen(pref) THEN
+            RETURN FALSE;
+        ENDIF
+        RETURN StrPart(s, 1, StrLen(pref)) = pref;
+    ENDFUNC
+
+    FUNC num IndexOf(string s, string token)
+        VAR num n;
+        VAR num t;
+        VAR num i;
+        n := StrLen(s);
+        t := StrLen(token);
+        IF (t <= 0) OR (n < t) THEN
+            RETURN 0;
+        ENDIF
+        FOR i FROM 1 TO (n - t + 1) DO
+            IF StrPart(s, i, t) = token THEN
+                RETURN i;
+            ENDIF
+        ENDFOR
+        RETURN 0;
+    ENDFUNC
+
+    PROC SendStr(string msg)
+        SocketSend client_socket \Str := msg + DELIM;
+        TPWrite "Send: " + msg;
+        WaitTime 0.02;
+    ENDPROC
+
+    PROC RecvLine(VAR string out)
+        VAR string chunk := "";
+        VAR num pos := 0;
+
+        WHILE TRUE DO
+            SocketReceive client_socket \Str := chunk \Time := 40;
+            IF StrLen(chunk) > 0 THEN
+                rx_buf := rx_buf + chunk;
+            ENDIF
+
+            pos := IndexOf(rx_buf, DELIM);
+            IF pos > 0 THEN
+                out := StrPart(rx_buf, 1, pos - 1);
+
+                IF pos < StrLen(rx_buf) THEN
+                    rx_buf := StrPart(rx_buf, pos + 1, StrLen(rx_buf) - pos);
+                ELSE
+                    rx_buf := "";
+                ENDIF
+                RETURN;
+            ENDIF
+        ENDWHILE
+    ENDPROC
+
+    PROC RecvUntilUseful(VAR string s)
+CheckAgain:
+        RecvLine s;
+        TPWrite "Received: " + s;
+
+        IF StartsWith(s, "ok_") THEN
+            TPWrite "ACK ignored.";
+            IF IndexOf(rx_buf, DELIM) > 0 THEN
+                GOTO CheckAgain;
+            ENDIF
+        ELSE
+            RETURN;
+        ENDIF
+    ENDPROC
+
+    PROC MoveSnack1()
+        TPWrite "Moving snack1";
+        MoveJ Offs(Target_10,120,0,0), v200, z30, project_tool;
+        MoveJ Offs(Target_10,0,0,0), v200, z30, project_tool;
+        MoveL Offs(Target_10,0,0,60), v60, z30, project_tool;
+        MoveL Offs(Target_10,120,0,60), v50, z30, project_tool;
+        MoveJ Target_way_point, v200, z30, project_tool;
+        MoveJ Target_Home, v200, z30, project_tool;
+        MoveL Target_end_point, v200, z30, project_tool;
+        MoveJ Target_Home, v200, z30, project_tool;
+        WaitTime 1;
+    ENDPROC
+    PROC MoveSnack2()
+        TPWrite "Moving snack2";
+        MoveJ Offs(Target_20,120,0,0), v200, z30, project_tool;
+        MoveL Target_20, v200, z30, project_tool;
+        MoveL Offs(Target_20,0,0,60), v60, z30, project_tool;
+        MoveL Offs(Target_20,120,0,60), v50, z30, project_tool;
+        MoveJ Target_Home, v200, z30, project_tool;
+        MoveL Target_end_point, v200, z30, project_tool;
+        MoveJ Target_Home, v200, z30, project_tool;
+        WaitTime 1;
+    ENDPROC
+    PROC MoveSnack3()
+        TPWrite "Moving snack3";
+        MoveJ Offs(Target_30,120,0,0), v200, z30, project_tool;
+        MoveL Target_30, v200, z30, project_tool;
+        MoveL Offs(Target_30,0,0,60), v60, z30, project_tool;
+        MoveL Offs(Target_30,120,0,60), v50, z30, project_tool;
+        MoveJ Target_way_point, v200, z30, project_tool;
+        MoveJ Target_Home, v200, z30, project_tool;
+        MoveL Target_end_point, v200, z30, project_tool;
+        MoveJ Target_Home, v200, z30, project_tool;
+        WaitTime 1;
+    ENDPROC
+    PROC MoveSnack4()
+        TPWrite "Moving snack4";
+        MoveJ Offs(Target_40,120,0,0), v200, z30, project_tool;
+        MoveL Target_40, v200, z30, project_tool;
+        MoveL Offs(Target_40,0,0,60), v60, z30, project_tool;
+        MoveL Offs(Target_40,120,0,60), v50, z30, project_tool;
+        MoveJ Target_Home, v200, z30, project_tool;
+        MoveL Target_end_point, v200, z30, project_tool;
+        MoveJ Target_Home, v200, z30, project_tool;
+        WaitTime 1;
+    ENDPROC
+    PROC MoveSnack5()
+        TPWrite "Moving snack5";
+        MoveJ Offs(Target_50,120,0,0), v200, z30, project_tool;
+        MoveJ Offs(Target_50,0,0,0), v200, z30, project_tool;
+        MoveL Offs(Target_50,0,0,60), v60, z30, project_tool;
+        MoveL Offs(Target_50,120,0,60), v50, z30, project_tool;
+        MoveJ Offs(Target_way_point,0,0,-50), v200, z30, project_tool;
+        MoveJ Target_Home, v200, z30, project_tool;
+        MoveL Target_end_point, v200, z30, project_tool;
+        MoveJ Target_Home, v200, z30, project_tool;
+        WaitTime 1;
+    ENDPROC
+    PROC MoveSnack6()
+        TPWrite "Moving snack6";
+        MoveJ Offs(Target_60,120,0,0), v200, z30, project_tool;
+        MoveJ Offs(Target_60,0,0,0), v200, z30, project_tool;
+        MoveL Offs(Target_60,0,0,60), v60, z30, project_tool;
+        MoveL Offs(Target_60,120,0,60), v50, z30, project_tool;
+        MoveJ Target_Home, v200, z30, project_tool;
+        MoveL Target_end_point, v200, z30, project_tool;
+        MoveJ Target_Home, v200, z30, project_tool;
+        WaitTime 1;
+    ENDPROC
+    PROC MoveSnack7()
+        TPWrite "Moving snack7";
+        MoveJ Offs(Target_70,120,0,0), v200, z30, project_tool;
+        MoveL Target_70, v200, z30, project_tool;
+        MoveL Offs(Target_70,0,0,60), v60, z30, project_tool;
+        MoveL Offs(Target_70,120,0,60), v50, z30, project_tool;
+        MoveJ Offs(Target_way_point,0,0,-50), v200, z30, project_tool;
+        MoveJ Target_Home, v200, z30, project_tool;
+        MoveL Target_end_point, v200, z30, project_tool;
+        MoveJ Target_Home, v200, z30, project_tool;
+        WaitTime 1;
+    ENDPROC
+    PROC MoveSnack8()
+        TPWrite "Moving snack8";
+        MoveJ Offs(Target_80,120,0,0), v200, z30, project_tool;
+        MoveJ Offs(Target_80,0,0,0), v200, z30, project_tool;
+        MoveL Offs(Target_80,0,0,60), v60, z30, project_tool;
+        MoveL Offs(Target_80,120,0,60), v50, z30, project_tool;
+        MoveJ Target_Home, v200, z30, project_tool;
+        MoveL Target_end_point, v200, z30, project_tool;
+        MoveJ Target_Home, v200, z30, project_tool;
+        WaitTime 1;
+    ENDPROC
+ENDMODULE
