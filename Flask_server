@@ -219,16 +219,16 @@ def robot_socket_client():
             log("3초 후 재접속...")
             time.sleep(3)
 
-
-snack_map = {
-    "초코송이": "snack1",
-    "먹태깡": "snack2",
-    "쫄병": "snack3",
-    "하리보": "snack4",
-    "오레오": "snack5",
-    "콜라": "snack6",
-    "껌": "snack7",
-    "멘토스": "snack8"
+# 스낵 별 수정하기.
+snack_map = { 
+    "": "snack1",
+    "": "snack2",
+    "": "snack3",
+    "": "snack4",
+    "": "snack5",
+    "": "snack6",
+    "": "snack7",
+    "": "snack8"
 }
 
 # ----------------------------------------
